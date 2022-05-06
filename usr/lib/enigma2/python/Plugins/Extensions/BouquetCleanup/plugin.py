@@ -89,7 +89,7 @@ class BouquetsReader():
 						continue
 					newContent = []
 					for item in content:
-						item = item.strip("\r\n")
+						item = item.strip("\n")
 						if newContent and item[:13] == "#DESCRIPTION ":
 							newContent[-1] += "\n" + item
 						else:
@@ -195,7 +195,7 @@ class BouquetCleanup(Screen):
 							item_split = item.split(":")
 							if len(item_split) > 7 and int(item_split[1]) == 0:
 								if(int(item_split[6], 16) >> 16) not in self.active_orbitals:
-									self.bouquetsDict[bouquet_type][i]["content"][j] = self.spacer()
+									self.bouquetsDict[bouquet_type][i]["content"][j] = self.spacer(item)
 								else:
 									numActiveServices += 1
 						elif item.startswith("#SERVICE ") and ":http" in item:
@@ -209,8 +209,8 @@ class BouquetCleanup(Screen):
 		self["config"].setText(_("Bouquet clean-up complete."))
 		self.updateSummary()
 							
-	def spacer(self):
-		return "#SERVICE 1:320:0:0:0:0:0:0:0:0:\n#DESCRIPTION  "	
+	def spacer(self, item):
+		return "#SERVICE 1:320:0:0:0:0:0:0:0:0:%s\n#DESCRIPTION  %s" % ("\r" if "\r" in item else "", "\r" if "\r" in item else "")	
 
 	def keyCancel(self):
 		self.close()
