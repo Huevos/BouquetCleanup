@@ -8,6 +8,7 @@ from os import makedirs
 from enigma import eTimer, eDVBDB, eServiceReference
 
 from Components.ActionMap import ActionMap
+from Components.config import config, ConfigSelection, ConfigSubsection, getConfigListEntry
 from Components.Label import Label
 from Components.NimManager import nimmanager
 from Components.Sources.StaticText import StaticText
@@ -16,6 +17,27 @@ from Plugins.Plugin import PluginDescriptor
 
 from Screens.MessageBox import MessageBox
 from Screens.Screen import Screen, ScreenSummary
+from Screens.Setup import Setup
+
+config.plugins.BouquetCleanup = ConfigSubsection()
+config.plugins.BouquetCleanup.source = ConfigSelection(choices=["/etc/enigma2", "/tmp/bouquets"], default="/etc/enigma2")
+config.plugins.BouquetCleanup.target = ConfigSelection(choices=["/etc/enigma2", "/tmp/bouquets/new"], default="/etc/enigma2")
+
+
+class BouquetCleanupSetup(Setup):
+	def __init__(self, session):
+		Setup.__init__(self, session=session, setup="bouquetcleanup")
+
+	def createSetup(self):
+		self.list = []
+		self.list.append(getConfigListEntry("From", config.plugins.BouquetCleanup.source, "Source location of the bouquets you want to clean up. '/etc/enigma2' is the default location. The location '/tmp/bouquets' is just provided for testing purposes."))
+		self.list.append(getConfigListEntry("To", config.plugins.BouquetCleanup.target, "Target location where you want the cleaned bouquets to be saved. '/etc/enigma2' is the default location. The location in '/tmp/bouquets/new' is just provided for testing purposes. If the source and target locations are the same the new cleaned bouquets will overwrite the originals."))
+		currentItem = self["config"].getCurrent()
+		self["config"].list = self.list
+		self.moveToItem(currentItem)
+
+	def createSetupList(self): # PLi
+		self.createSetup()
 
 
 class BouquetsReader():
@@ -116,15 +138,18 @@ class BouquetCleanup(Screen):
 		self.skinName = ["BouquetCleanup", "Setup"]
 		self["key_green"] = StaticText(_("Clean bouquets"))
 		self["key_red"] = StaticText(_("Exit"))
-		self["saveactions"] = ActionMap(["CancelSaveActions"],
+		self["key_menu"] = StaticText(_("MENU"))
+		self["saveactions"] = ActionMap(["CancelSaveActions", "OkCancelActions"],
 		{
 			"save": self.keySave,
+			"ok": self.keySave,
 		}, -3)
-		self["cancelactions"] = ActionMap(["CancelSaveActions"],
+		self["cancelactions"] = ActionMap(["CancelSaveActions", "MenuActions"],
 		{
 			"cancel": self.keyCancel,
+			"menu": self.keyMenu,
 		}, -3)
-		self["config"] = Label(_("Press green to run a clean-up on your bouquets. Channels on satellites that are not configured will be removed. Empty bouquets will be hidden. It is advisable to make a backup beforehand in case you want to reverse the changes."))
+		self["config"] = Label(_("Press 'GREEN' to run a clean-up on your bouquets. Channels on satellites that are not configured will be removed. Empty bouquets will be hidden. It is advisable to make a backup beforehand in case you want to reverse the changes.\n\nPress 'MENU' to access this plugin's configuration setup."))
 
 		self.bouquetsDict = {}
 		self.active_orbitals = []
@@ -156,8 +181,11 @@ class BouquetCleanup(Screen):
 			self["key_green"].text = ""
 			self.updateSummary()
 
+	def keyMenu(self):
+		self.session.open(BouquetCleanupSetup)
+
 	def processBouquets(self):
-		self.bouquetsDict = BouquetsReader().getBouquetsDict()
+		self.bouquetsDict = BouquetsReader(config.plugins.BouquetCleanup.source.value).getBouquetsDict()
 		for bouquet_type in ["tv", "radio"]:
 			for i, row in enumerate(self.bouquetsDict[bouquet_type][:]):
 				if "content" in row:
@@ -173,10 +201,11 @@ class BouquetCleanup(Screen):
 						elif item.startswith("#SERVICE ") and ":http" in item:
 							numActiveServices += 1 # count IPTV as active service
 					self.bouquetsDict[bouquet_type][i]["hasActiveServices"] = numActiveServices
-		BouquetsWriter().writeBouquets(self.bouquetsDict)
+		BouquetsWriter(config.plugins.BouquetCleanup.target.value).writeBouquets(self.bouquetsDict)
 		# reload
-		eDVBDB.getInstance().reloadServicelist()
-		eDVBDB.getInstance().reloadBouquets()
+		if config.plugins.BouquetCleanup.target.value == config.plugins.BouquetCleanup.target.default:
+			eDVBDB.getInstance().reloadServicelist()
+			eDVBDB.getInstance().reloadBouquets()
 		self["config"].setText(_("Bouquet clean-up complete."))
 		self.updateSummary()
 							
