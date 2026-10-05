@@ -165,13 +165,13 @@ class BouquetCleanup(Screen):
 
 		for nim in nimmanager.nim_slots:
 			if nim.isCompatible("DVB-S"):
-				if getattr(nim, "config_mode_dvbs", nim.config_mode) not in ("loopthrough", "satposdepends", "nothing"):
+				if (getattr(nim, "config_mode_dvbs") if hasattr(nim, "config_mode_dvbs") else nim.config_mode) not in ("loopthrough", "satposdepends", "nothing"):
 					self.active_orbitals.extend([sat[0] for sat in nimmanager.getSatListForNim(nim.slot)])
 			elif nim.isCompatible("DVB-T"):
-				if getattr(nim, "config_mode_dvbt", nim.config_mode) != "nothing":
+				if (getattr(nim, "config_mode_dvbt") if hasattr(nim, "config_mode_dvbt") else nim.config_mode) != "nothing":
 					self.active_orbitals.append(0xeeee)
 			elif nim.isCompatible("DVB-C"):
-				if getattr(nim, "config_mode_dvbc", nim.config_mode) != "nothing":
+				if (getattr(nim, "config_mode_dvbc") if hasattr(nim, "config_mode_dvbc") else nim.config_mode) != "nothing":
 					self.active_orbitals.append(0xffff)
 		self.active_orbitals = sorted(list(dict.fromkeys(self.active_orbitals)))
 
